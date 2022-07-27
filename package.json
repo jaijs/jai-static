@@ -1,0 +1,36 @@
+{
+  "name": "jai-static",
+  "version": "1.0.1",
+  "description": "A node.js module for serving static files.",
+  "keywords": [
+    "static",
+    "middleware",
+    "server static files",
+    "jai",
+    "jai.js",
+    "jai-static"
+  ],
+  "main": "/src/index.js",
+  "scripts": {
+    "lint": "eslint --ext .js,.ts src",
+    "lint:fix": "eslint --fix --ext .js,.ts src"
+  },
+  "author": {
+    "name": "Harpal Singh",
+    "url": "https://github.com/hsk11"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/jaijs/jai-static",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jaijs/jai-static"
+  },
+  "dependencies": {
+    "mime-db": "^1.52.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.20.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0"
+  }
+}
