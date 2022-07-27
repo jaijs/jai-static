@@ -1,4 +1,3 @@
-
 # Jai Static
 A simple and fast node.js module to server static files effortlessly. Config base path and public folder path.
 
