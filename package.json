@@ -1,6 +1,6 @@
 {
   "name": "jai-static",
-  "version": "1.0.1",
+  "version": "1.0.11",
   "description": "A node.js module for serving static files.",
   "keywords": [
     "static",
@@ -10,7 +10,7 @@
     "jai.js",
     "jai-static"
   ],
-  "main": "/src/index.js",
+  "main": "./src/index.js",
   "scripts": {
     "lint": "eslint --ext .js,.ts src",
     "lint:fix": "eslint --fix --ext .js,.ts src"
