@@ -4,6 +4,7 @@
   "description": "A node.js module for serving static files.",
   "keywords": [
     "static",
+    "files",
     "middleware",
     "server static files",
     "jai",
