@@ -171,8 +171,8 @@ function parseIfModifiedSince(ifModifiedSince: string): Date | null {
 async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, res: ServerResponse, req: IncomingMessage | Request = { headers: {}, method: "GET" }, cb?: (error?: Error) => void, showError: boolean = false): Promise<boolean> {
     try {
         filePath = path.resolve(filePath);
-        if (!req?.headers) req.headers = {};
-        if (!req?.method) req.method = "GET";
+        if(!req || req.headers || req.method) req = { headers: {}, method: "GET" };
+
 
 
         const mergedOptions: JaiStaticOptions = { ...defaultOptions, ...options, dir: options.dir || defaultOptions.dir };
