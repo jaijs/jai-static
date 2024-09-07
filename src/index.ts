@@ -33,7 +33,7 @@ interface JaiStaticOptions {
     allowedExtensions?: string[];
     basePath?: string;
     urlPath?: string;
-    fallthrough?: boolean;
+    fallthrough: boolean;
     immutable?: boolean,
     defaultMimeType: string;
     mimeTypes?: Record<string, string>;
@@ -168,14 +168,17 @@ function parseIfModifiedSince(ifModifiedSince: string): Date | null {
 }
 
 // Main function to send a file
-async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, res: ServerResponse, req: IncomingMessage | Request = { headers: {}, method: "GET" }, cb?: (error?: Error) => void, showError: boolean = false): Promise<boolean> {
+async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, res: ServerResponse, req: IncomingMessage | Request = { headers: {}, method: "GET" }, cb?: (error?: Error) => void): Promise<boolean> {
+    const mergedOptions: JaiStaticOptions = { ...defaultOptions, ...options, dir: options.dir || defaultOptions.dir };
+    const showError =  !mergedOptions.fallthrough;
     try {
         filePath = path.resolve(filePath);
-        if(!req || req.headers || req.method) req = { headers: {}, method: "GET" };
+        if(!req) req = { headers: {}, method: "GET" };
+        if (!req?.headers) req.headers = {};
+        if (!req?.method) req.method = "GET";
 
+       
 
-
-        const mergedOptions: JaiStaticOptions = { ...defaultOptions, ...options, dir: options.dir || defaultOptions.dir };
         mergedOptions.headers = {
             ...defaultOptions.headers,
             ...options.headers,
@@ -386,7 +389,7 @@ async function createStatic(options: JaiStaticOptions, req: IncomingMessage, res
         return next();
     }
     mergedOptions.existingHeaders = (req.headers as Record<string, string>);
-    await sendFile(filePath, mergedOptions, res, req, undefined, !mergedOptions.fallthrough);
+    await sendFile(filePath, mergedOptions, res, req, undefined);
 
     if (mergedOptions.fallthrough) return next();
 

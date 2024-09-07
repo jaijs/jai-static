@@ -1,6 +1,6 @@
 {
   "name": "jai-static",
-  "version": "1.11.11",
+  "version": "1.11.21",
   "description": "Powerful Node.js module/package for serving static files through http server",
   "keywords": [
     "static",
@@ -35,7 +35,7 @@
     "start": "node ./dist/index.js",
     "lint": "eslint --ext .js,.ts src",
     "lint:fix": "eslint --fix --ext .js,.ts src",
-    "test": "npm run build && jest --bail=1 --maxFailures=1"
+    "test": "npm run build && jest"
   },
   "author": "Harpal Singh (https://github.com/hsk11)",
   "license": "MIT",
@@ -50,6 +50,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@typescript-eslint/eslint-plugin": "^8.4.0",
+    "@typescript-eslint/parser": "^8.4.0",
     "eslint": "^8.20.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.26.0",

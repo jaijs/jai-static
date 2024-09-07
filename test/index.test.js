@@ -458,7 +458,7 @@ describe('sendFile function', () => {
     setupFileMocks(false);
     const cb = jest.fn();
 
-    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes, {}, cb, true);
+    const result = await JaiStaticMiddleware.sendFile('test.txt', {fallthrough:false}, mockRes, {}, cb);
 
     expect(result).toBe(false);
     expect(mockRes.statusCode).toBe(404);
@@ -470,7 +470,7 @@ describe('sendFile function', () => {
     const cb = jest.fn();
     mockRes.statusCode = 'old';
 
-    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes, {}, cb, false);
+    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes, {}, cb);
 
     expect(result).toBe(false);
     expect(mockRes.statusCode).toBe('old');
@@ -574,7 +574,7 @@ describe('sendFile function', () => {
     };
     setupFileMocks();
 
-    const result = await JaiStaticMiddleware.sendFile('.hiddenfile', { dotfiles: 'deny' }, mockRes, {}, 0, true);
+    const result = await JaiStaticMiddleware.sendFile('.hiddenfile', { dotfiles: 'deny' , fallthrough:false}, mockRes, {}, 0);
 
     expect(result).toBe(false);
     expect(mockRes.statusCode).toBe(403);
