@@ -313,9 +313,9 @@ test('should handle multiple index files', async () => {
   fs.promises.access.mockImplementation((p) => {
     accessCallCount++;
 
-    console.log('path',path)
+
     if(p==dir){
-      console.log('path',path)
+
       return Promise.resolve();
     }
     if (accessCallCount <= 3) {
@@ -325,7 +325,6 @@ test('should handle multiple index files', async () => {
   });
 
   fs.promises.stat.mockImplementation((p) => {
-    console.log('pathDIR',p)
     if(p==dir){
       return Promise.resolve({
         isDirectory: () => true,
@@ -430,7 +429,7 @@ describe('sendFile function', () => {
     };
     fs.createReadStream.mockReturnValue(mockReadStream);
 
-    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockReq,mockRes);
+    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes, mockReq);
 
     expect(result).toBe(true);
     expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/plain');
@@ -438,5 +437,170 @@ describe('sendFile function', () => {
     expect(mockReadStream.pipe).toHaveBeenCalledWith(mockRes);
   });
 
-  // Add more tests for sendFile function as needed
+  test('should send file successfully Without Request', async () => {
+    const mockReq = {
+      method: 'GET',
+      url: '/public/test.txt',
+      headers: {},
+    }
+    const mockRes = {
+      setHeader: jest.fn(),
+      getHeaders: jest.fn().mockReturnValue({}),
+      writeHead: jest.fn(),
+      end: jest.fn(),
+      on: jest.fn(),
+      statusCode: 200,
+    };
+
+    fs.promises.access.mockResolvedValue(undefined);
+    fs.promises.stat.mockResolvedValue({
+      isDirectory: () => false,
+      size: 1024,
+      mtime: new Date(),
+    });
+
+    const mockReadStream = {
+      pipe: jest.fn(),
+      on: jest.fn().mockImplementation((event, callback) => {
+        if (event === 'close') {
+          callback();
+        }
+        return mockReadStream;
+      }),
+    };
+    fs.createReadStream.mockReturnValue(mockReadStream);
+
+    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes);
+
+    expect(result).toBe(true);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/plain');
+    expect(mockRes.statusCode).toBe(200);
+    expect(mockReadStream.pipe).toHaveBeenCalledWith(mockRes);
+  });
+
+  test('should send file successfully Without Request', async () => {
+    const mockReq = {
+      method: 'GET',
+      url: '/public/test.txt',
+      headers: {},
+    }
+    const mockRes = {
+      setHeader: jest.fn(),
+      getHeaders: jest.fn().mockReturnValue({}),
+      writeHead: jest.fn(),
+      end: jest.fn(),
+      on: jest.fn(),
+      statusCode: 200,
+    };
+
+    fs.promises.access.mockResolvedValue(undefined);
+    fs.promises.stat.mockResolvedValue({
+      isDirectory: () => false,
+      size: 1024,
+      mtime: new Date(),
+    });
+
+    const mockReadStream = {
+      pipe: jest.fn(),
+      on: jest.fn().mockImplementation((event, callback) => {
+        if (event === 'close') {
+          callback();
+        }
+        return mockReadStream;
+      }),
+    };
+    fs.createReadStream.mockReturnValue(mockReadStream);
+    const cb = jest.fn();
+    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes, {}, cb, true);
+
+    expect(result).toBe(true);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/plain');
+    expect(mockRes.statusCode).toBe(200);
+    expect(mockReadStream.pipe).toHaveBeenCalledWith(mockRes);
+    expect(cb).toHaveBeenCalledWith();
+  });
+
+  test('should Call CB on Fail and throw Error response', async () => {
+    const mockReq = {
+      method: 'GET',
+      url: '/public/test.txt',
+      headers: {},
+    }
+    const mockRes = {
+      setHeader: jest.fn(),
+      getHeaders: jest.fn().mockReturnValue({}),
+      writeHead: jest.fn(),
+      end: jest.fn(),
+      on: jest.fn(),
+      statusCode: 200,
+    };
+
+    fs.promises.access.mockResolvedValue(undefined);
+    
+    const error = new Error('ENOENT');
+    fs.promises.stat.mockImplementation(() => {
+      return Promise.reject(error);
+    })
+
+
+    const mockReadStream = {
+      pipe: jest.fn(),
+      on: jest.fn().mockImplementation((event, callback) => {
+        if (event === 'close') {
+          callback();
+        }
+        return mockReadStream;
+      }),
+    };
+    fs.createReadStream.mockReturnValue(mockReadStream);
+    const cb = jest.fn();
+    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes, {}, cb, true);
+
+    expect(result).toBe(false);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', "application/json");
+    expect(mockRes.statusCode).toBe(500);
+    expect(cb).toHaveBeenCalledWith(error);
+  });
+  
+  test('should Call CB on Fail But NO Errors Throw ', async () => {
+    const mockReq = {
+      method: 'GET',
+      url: '/public/test.txt',
+      headers: {},
+    }
+    const mockRes = {
+      setHeader: jest.fn(),
+      getHeaders: jest.fn().mockReturnValue({}),
+      writeHead: jest.fn(),
+      end: jest.fn(),
+      on: jest.fn(),
+      statusCode: 'old',
+    };
+
+    fs.promises.access.mockResolvedValue(undefined);
+    
+    const error = new Error('ENOENT');
+    fs.promises.stat.mockImplementation(() => {
+      return Promise.reject(error);
+    })
+
+
+    const mockReadStream = {
+      pipe: jest.fn(),
+      on: jest.fn().mockImplementation((event, callback) => {
+        if (event === 'close') {
+          callback();
+        }
+        return mockReadStream;
+      }),
+    };
+    fs.createReadStream.mockReturnValue(mockReadStream);
+    const cb = jest.fn();
+    const result = await JaiStaticMiddleware.sendFile('test.txt', {}, mockRes, {}, cb, false);
+
+    expect(result).toBe(false);
+    expect(mockRes.statusCode).toBe('old');
+    expect(cb).toHaveBeenCalledWith(error);
+  });
+
 });
