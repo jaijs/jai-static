@@ -20,14 +20,14 @@ const allMimeWithExtension: MimeEntry[] = Object.entries(typedMimeDB)
 
 const mimeDBLength = allMimeWithExtension.length;
 
-function mimeWithExtension(extension: string): string {
+function mimeWithExtension(extension: string): string | false {
   for (let i = 0; i < mimeDBLength; i += 1) {
     const entry = allMimeWithExtension[i];
     if (entry && entry.extensions && entry.extensions.includes(extension)) {
       return entry.mime;
     }
   }
-  return 'application/octet-stream';
+  return  false;
 }
 
 export default mimeWithExtension;

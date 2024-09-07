@@ -1,12 +1,13 @@
 # Jai Static
 
-A simple and fast Node.js module to serve static files effortlessly. Easily configure base path and public folder path.
+A powerful and flexible Node.js module for serving static files with ease. Jai Static offers seamless integration with any Node.js framework and provides fine-grained control over how your static assets are served.
 
 ---
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/Harpalsingh_11?label=Follow)](https://twitter.com/intent/follow?screen_name=Harpalsingh_11)
 [![Linkedin: Harpal Singh](https://img.shields.io/badge/-harpalsingh11-blue?style=flat-square&logo=Linkedin&logoColor=white&link=https://www.linkedin.com/in/harpalsingh11)](https://www.linkedin.com/in/harpalsingh11/)
 [![GitHub followers](https://img.shields.io/github/followers/hsk11?label=Follow&style=social)](https://github.com/hsk11)
+[![npm version](https://badge.fury.io/js/jai-static.svg)](https://badge.fury.io/js/jai-static)
 
 ---
 
@@ -22,16 +23,23 @@ A simple and fast Node.js module to serve static files effortlessly. Easily conf
   - [Express](#express)
   - [HTTP](#http)
 - [Configuration Options](#configuration-options)
+- [Advanced Usage](#advanced-usage)
+- [Performance Optimization](#performance-optimization)
+- [Security Considerations](#security-considerations)
+- [Troubleshooting](#troubleshooting)
 - [License](#license)
 - [Author](#author)
 
 ## Features
 
-- 🚀 Easy setup and integration
-- 🔧 Works with any Node.js framework
-- ⚙️ Highly configurable for fine-tuned control
-- 🗂️ Supports serving from multiple directories
-- 🔒 Secure by default with configurable options
+- 🚀 Lightning-fast static file serving
+- 🔧 Seamless integration with any Node.js framework
+- ⚙️ Highly configurable for precise control
+- 🗂️ Support for serving from multiple directories
+- 🔒 Secure by default with customizable security options
+- 📦 Efficient caching mechanisms
+- 🎯 Content negotiation and partial content support
+- 🔍 Extensible file discovery system
 
 ## Quick Start
 
@@ -96,8 +104,12 @@ const JaiStatic = require('jai-static');
 
 const app = express();
 
-app.use('/static', JaiStatic({
-  dir: `${__dirname}/public`
+app.use('/assets', JaiStatic({
+  dir: `${__dirname}/public`,
+  maxAge: 3600,
+  index: ['index.html', 'index.htm'],
+  extensions: ['html', 'htm', 'json'],
+  lastModified: true
 }));
 
 app.listen(3000, () => {
@@ -113,7 +125,12 @@ const JaiStatic = require('jai-static');
 
 const server = http.createServer(JaiStatic({
   dir: `${__dirname}/public`,
-  maxAge: 3600
+  maxAge: 3600,
+  headers: {
+    'X-Powered-By': 'Jai Static'
+  },
+  acceptRanges: true,
+  cacheControl: true
 }));
 
 server.listen(3000, () => {
@@ -122,6 +139,8 @@ server.listen(3000, () => {
 ```
 
 ## Configuration Options
+
+Jai Static offers a wide range of configuration options to fine-tune its behavior:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -139,6 +158,110 @@ server.listen(3000, () => {
 | `index` | `string` \| `string[]` | `'index.html'` | Default file name(s) for directory requests |
 | `extensions` | `string[]` | `['html', 'htm']` | File extensions to try when not specified |
 | `allowedExtensions` | `string[]` | `['*']` | Allowed file extensions. Use `['*']` to allow all |
+| `fallthrough` | `boolean` | `true` | Pass to next middleware if file not found |
+| `immutable` | `boolean` | `false` | Add immutable directive to Cache-Control header |
+| `defaultMimeType` | `string` | `'application/octet-stream'` | Default MIME type for files with unknown extensions |
+| `mimeTypes` | `object` | `{}` | Custom MIME type mappings {"abc":"aplication/abc"} |
+
+## Advanced Usage
+
+### Serving from Multiple Directories
+
+You can serve files from multiple directories by chaining middleware:
+
+```javascript
+const express = require('express');
+const JaiStatic = require('jai-static');
+
+const app = express();
+
+app.use('/assets', JaiStatic({ dir: './public/assets' }));
+app.use('/images', JaiStatic({ dir: './public/images', maxAge: 86400 }));
+app.use('/docs', JaiStatic({ dir: './public/documents', dotfiles: 'allow' }));
+
+app.listen(3000);
+```
+
+### Custom Error Handling
+
+Implement custom error handling by setting `fallthrough` to `false` and using a custom error handler:
+
+```javascript
+const express = require('express');
+const JaiStatic = require('jai-static');
+
+const app = express();
+
+app.use(JaiStatic({ 
+  dir: './public', 
+  fallthrough: false 
+}));
+
+app.use((err, req, res, next) => {
+  if (err.statusCode === 404) {
+    res.status(404).send('Custom 404: File not found');
+  } else {
+    next(err);
+  }
+});
+
+app.listen(3000);
+```
+
+## Performance Optimization
+
+To optimize performance with Jai Static:
+
+1. Enable caching by setting appropriate `maxAge` and `immutable` options.
+2. Use `etag` for efficient cache validation.
+3. Enable `acceptRanges` for partial content support.
+4. Set `cacheControl` to `true` for better client-side caching.
+
+Example of a performance-optimized configuration:
+
+```javascript
+JaiStatic({
+  dir: './public',
+  maxAge: 86400 * 30, // 30 days
+  immutable: true,
+  etag: true,
+  acceptRanges: true,
+  cacheControl: true
+})
+```
+
+## Security Considerations
+
+Jai Static provides several security features:
+
+1. **Dotfiles**: By default, access to dotfiles is denied. You can change this with the `dotfiles` option.
+2. **Allowed Extensions**: Use `allowedExtensions` to restrict which file types can be served.
+3. **Directory Traversal**: Jai Static automatically prevents directory traversal attacks.
+
+Example of a security-focused configuration:
+
+```javascript
+JaiStatic({
+  dir: './public',
+  dotfiles: 'deny',
+  allowedExtensions: ['html', 'css', 'js', 'png', 'jpg', 'gif'],
+  headers: {
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-XSS-Protection': '1; mode=block'
+  }
+})
+```
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. Check if the `dir` path is correct and accessible.
+2. Ensure `basePath` matches your URL structure.
+3. Verify that file permissions allow Node.js to read the files.
+4. Check for conflicting middleware in your application.
+
+For more help, please open an issue on the GitHub repository.
 
 ## License
 

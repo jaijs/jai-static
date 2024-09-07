@@ -33,9 +33,14 @@ interface JaiStaticOptions {
     allowedExtensions?: string[];
     basePath?: string;
     urlPath?: string;
+    fallthrough?: boolean;
+    immutable?: boolean,
+    defaultMimeType: string;
+    mimeTypes?: Record<string, string>;
+
 }
 
-type NextFunction = () => void;
+type NextFunction = (e?: any) => void;
 
 // Error response functions
 const error404 = (res: ServerResponse, error: Error): boolean => {
@@ -54,7 +59,7 @@ const error404 = (res: ServerResponse, error: Error): boolean => {
 
 const error500 = (res: ServerResponse, error: Error): boolean => {
     console.error(error);
-    res.statusCode = 500;
+    res.statusCode = 500
     if (!res.headersSent) {
         res.setHeader('Content-Type', 'application/json');
         res.writeHead(500);
@@ -101,7 +106,10 @@ const defaultOptions: JaiStaticOptions = {
     index: 'index.html',
     extensions: ['html', 'htm'],
     allowedExtensions: ['*'],
-    existingHeaders: {}
+    existingHeaders: {},
+    fallthrough: true,
+    defaultMimeType: 'application/octet-stream',
+    mimeTypes: {},
 }
 
 // Helper functions
@@ -135,11 +143,16 @@ async function tryIndexes(options: JaiStaticOptions, filePath: string): Promise<
 
 // Helper function to parse range header
 function parseRange(range: string, fileSize: number): { start: number; end: number } | null {
-    const match = range.match(/bytes=(\d+)-(\d*)/);
-    if (!match) return null;
+    const match = range.match(/^bytes=(\d+)-(\d*)$/);
+    if (!match || match.length < 2) return null;
 
-    const start = parseInt(match[1] || '0', 10);
-    const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+    const startStr = match[1];
+    const endStr = match[2];
+
+    if (!startStr) return null;
+
+    const start = parseInt(startStr, 10);
+    const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
 
     if (isNaN(start) || isNaN(end) || start >= fileSize || end >= fileSize || start > end) {
         return null;
@@ -155,24 +168,40 @@ function parseIfModifiedSince(ifModifiedSince: string): Date | null {
 }
 
 // Main function to send a file
-async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, res: ServerResponse, req: IncomingMessage | Request = { headers: {}, method: "GET" }, cb?: (error?: Error) => void, showError: boolean=false ): Promise<boolean> {
+async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, res: ServerResponse, req: IncomingMessage | Request = { headers: {}, method: "GET" }, cb?: (error?: Error) => void, showError: boolean = false): Promise<boolean> {
     try {
+        console.log('Sending file:', filePath);
         filePath = path.resolve(filePath);
-        if(!req?.headers) req.headers = {};
-        if(!req?.method) req.method = "GET";
+        if (!req?.headers) req.headers = {};
+        if (!req?.method) req.method = "GET";
+
+
         const mergedOptions: JaiStaticOptions = { ...defaultOptions, ...options, dir: options.dir || defaultOptions.dir };
         mergedOptions.headers = {
             ...defaultOptions.headers,
             ...options.headers,
-            'Cache-Control': `private, max-age=${mergedOptions.maxAge || maxAge}`
+            'Cache-Control': `public, max-age=${mergedOptions.maxAge || maxAge}${mergedOptions.immutable ? ', immutable' : ''}`
         };
+        if (!mergedOptions.cacheControl) {
+            delete mergedOptions.headers['Cache-Control'];
+
+        }
 
         // Try to access the file, if not found, try with extensions
         try {
             await fsPromises.access(filePath);
         } catch (e) {
+            const extname = String(path.extname(filePath)).toLowerCase();
+            if (extname) {
+                if (cb) cb(e);
+                return showError ? error404(res, e) : false;
+            }
             const accessibleFile = await tryAccessWithExtensions(filePath, mergedOptions.extensions || []);
-            if (!accessibleFile) return false;
+            if (!accessibleFile) {
+                const error = new Error('Not Found');
+                if (cb) cb(error);
+                return showError ? error404(res, error) : false;
+            }
             filePath = accessibleFile;
         }
 
@@ -189,7 +218,7 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
             return showError ? error404(res, error) : false;
         }
 
-        const fileStat = await stat(filePath);
+        let fileStat = await stat(filePath);
 
         // If it's a directory, try to find an index file
         if (fileStat.isDirectory()) {
@@ -205,7 +234,8 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
                 if (cb) cb(error);
                 return showError ? sendErrorResponse(error, res, cb) : false;
             }
-            return sendFile(indexPath, mergedOptions, res, req, cb, showError);
+            fileStat = await stat(indexPath);
+            filePath = indexPath;
         }
 
         // Check if the file extension is allowed
@@ -219,7 +249,9 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         }
 
         // Get the MIME type for the file
-        const contentType = mimeWithExtension(extname.slice(1));
+        const customMimeType = mergedOptions?.mimeTypes?.[extname.slice(1)];
+
+        const contentType = customMimeType || mimeWithExtension(extname.slice(1)) || mergedOptions.defaultMimeType;
 
         // Handle conditional GET requests
         const ifModifiedSince = req.headers['if-modified-since'];
@@ -237,7 +269,6 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         const headersToShow = mergedOptions.headers || {};
         const existingHeaders = mergedOptions.existingHeaders || {};
 
-        // Handle range requests
         const rangeHeader = req.headers.range;
         let start = 0;
         let end = fileStat.size - 1;
@@ -249,7 +280,12 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
                 res.statusCode = 206; // Partial Content
                 res.setHeader('Content-Range', `bytes ${start}-${end}/${fileStat.size}`);
             } else {
-                return sendErrorResponse(new Error('Invalid range'), res, cb);
+                // Handle invalid range
+                res.statusCode = 416; // Range Not Satisfiable
+                res.setHeader('Content-Range', `bytes */${fileStat.size}`);
+                res.end();
+                if (cb) cb();
+                return true;
             }
         } else {
             res.statusCode = 200;
@@ -257,12 +293,13 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
 
         // Set headers
         if (!existingHeaders['accept-ranges'] && mergedOptions.acceptRanges) res.setHeader('Accept-Ranges', 'bytes');
-        if (!existingHeaders['cache-control']) res.setHeader('Cache-Control', headersToShow['Cache-Control'] || '');
+        if (!existingHeaders['cache-control'] && mergedOptions.cacheControl) res.setHeader('Cache-Control', headersToShow['Cache-Control'] || '');
         if (!existingHeaders['pragma'] && headersToShow['Pragma']) res.setHeader('Pragma', headersToShow['Pragma']);
         if (!existingHeaders['expires'] && headersToShow['Expires']) res.setHeader('Expires', headersToShow['Expires']);
 
         // Set custom headers
         Object.entries(headersToShow).forEach(([key, value]) => {
+
             res.setHeader(key, value);
         });
 
@@ -287,6 +324,7 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         // Handle stream errors
         readStream.on('error', (error) => {
             sendErrorResponse(error, res, cb);
+            readStream.destroy();
         });
 
         // Pipe the read stream to the response
@@ -295,6 +333,7 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         // Handle response errors
         res.on('error', (error) => {
             sendErrorResponse(error, res, cb);
+
         });
 
 
@@ -304,8 +343,8 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         return true;
     } catch (error) {
         console.error(error);
-        if(cb) cb(error);
-        return showError?sendErrorResponse(error as Error, res, cb):false;
+        if (cb) cb(error);
+        return showError ? sendErrorResponse(error as Error, res, cb) : false;
     }
 }
 
@@ -348,9 +387,11 @@ async function createStatic(options: JaiStaticOptions, req: IncomingMessage, res
         return next();
     }
     mergedOptions.existingHeaders = (req.headers as Record<string, string>);
-    const sent = await sendFile(filePath, mergedOptions, res, req, undefined, false);
-    if (sent) return;
-    return next();
+    await sendFile(filePath, mergedOptions, res, req, undefined, !mergedOptions.fallthrough);
+
+    if (mergedOptions.fallthrough) return next();
+
+
 }
 
 /**
@@ -361,7 +402,12 @@ async function createStatic(options: JaiStaticOptions, req: IncomingMessage, res
 function JaiStaticMiddleware(options: Partial<JaiStaticOptions> = { dir: '' }): (req: IncomingMessage, res: ServerResponse, next: NextFunction) => Promise<void> {
     return async (req: IncomingMessage, res: ServerResponse, next: NextFunction): Promise<void> => {
         if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-        await createStatic({ ...defaultOptions, ...options } as JaiStaticOptions, req, res, next);
+        try {
+            await createStatic({ ...defaultOptions, ...options } as JaiStaticOptions, req, res, next);
+        } catch (e) {
+            console.error(e);
+            return next(e);
+        }
     };
 }
 

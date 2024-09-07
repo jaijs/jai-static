@@ -1,6 +1,6 @@
 {
   "name": "jai-static",
-  "version": "1.1.16",
+  "version": "1.11.0",
   "description": "Powerful Node.js module/package for serving static files through http server",
   "keywords": [
     "static",
@@ -48,11 +48,14 @@
     "mime-db": "^1.52.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "eslint": "^8.20.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-import": "^2.26.0",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.5.4"
   },
   "bugs": {
     "url": "https://github.com/jaijs/jai-static/issues"

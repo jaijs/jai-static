@@ -1,0 +1,12 @@
+{
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
+    "transform": {
+      "^.+\\.(ts|tsx)$": ["ts-jest", {
+        "diagnostics": false
+      }]
+    },
+    "testMatch": ["**/__tests__/**/*.ts?(x)", "**/?(*.)+(spec|test).ts?(x)", "**/?(*.)+(spec|test).js?(x)"],
+    "silent": false
+  }
