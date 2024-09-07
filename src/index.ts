@@ -170,7 +170,6 @@ function parseIfModifiedSince(ifModifiedSince: string): Date | null {
 // Main function to send a file
 async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, res: ServerResponse, req: IncomingMessage | Request = { headers: {}, method: "GET" }, cb?: (error?: Error) => void, showError: boolean = false): Promise<boolean> {
     try {
-        console.log('Sending file:', filePath);
         filePath = path.resolve(filePath);
         if (!req?.headers) req.headers = {};
         if (!req?.method) req.method = "GET";
