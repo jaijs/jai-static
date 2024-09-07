@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "strict": false,
+    "module": "CommonJS",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "strictNullChecks": true,
+    "moduleResolution": "node",
+    "noUnusedParameters": true,
+    "noUnusedLocals": true,
+    "target": "es5",
+    "declaration": true,
+    "outDir": "./dist",
+    "noImplicitAny": true,
+    "importHelpers": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "lib": ["es2018"],
+    "noEmitOnError": false,
+    "sourceMap": false,
+    "removeComments": true,
+ 
+  },
+  "include": [
+    "src/**/*",
+    ".d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts"
+  ]
+}
