@@ -1,6 +1,6 @@
 {
   "name": "jai-static",
-  "version": "1.11.21",
+  "version": "1.11.22",
   "description": "Powerful Node.js module/package for serving static files through http server",
   "keywords": [
     "static",
@@ -64,5 +64,9 @@
   "directories": {
     "example": "examples",
     "test": "test"
+  },
+  "funding": {
+    "type": "individual",
+    "url": "https://github.com/sponsors/hsk11"
   }
 }
