@@ -1,6 +1,6 @@
 {
   "name": "jai-static",
-  "version": "1.11.22",
+  "version": "1.11.23",
   "description": "Powerful Node.js module/package for serving static files through http server",
   "keywords": [
     "static",

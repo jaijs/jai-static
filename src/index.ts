@@ -37,7 +37,7 @@ interface JaiStaticOptions {
     immutable?: boolean,
     defaultMimeType: string;
     mimeTypes?: Record<string, string>;
-
+    maxAllowedSize?: number;
 }
 
 type NextFunction = (e?: any) => void;
@@ -177,8 +177,6 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         if (!req?.headers) req.headers = {};
         if (!req?.method) req.method = "GET";
 
-       
-
         mergedOptions.headers = {
             ...defaultOptions.headers,
             ...options.headers,
@@ -186,7 +184,6 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         };
         if (!mergedOptions.cacheControl) {
             delete mergedOptions.headers['Cache-Control'];
-
         }
 
         // Try to access the file, if not found, try with extensions
@@ -252,8 +249,37 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
 
         // Get the MIME type for the file
         const customMimeType = mergedOptions?.mimeTypes?.[extname.slice(1)];
-
         const contentType = customMimeType || mimeWithExtension(extname.slice(1)) || mergedOptions.defaultMimeType;
+
+        // Handle zero file size
+        if (fileStat.size === 0) {
+            const rangeHeader = req.headers.range;
+            if (rangeHeader && mergedOptions.acceptRanges) {
+                // For zero-sized files, any range request is unsatisfiable
+                res.statusCode = 416; // Range Not Satisfiable
+                res.setHeader('Content-Range', 'bytes */0');
+                res.end();
+            } else {
+                res.statusCode = 200;
+                res.setHeader('Content-Length', '0');
+                res.setHeader('Content-Type', contentType);
+                if (mergedOptions.lastModified) res.setHeader('Last-Modified', fileStat.mtime.toUTCString());
+                if (mergedOptions.etag) res.setHeader('ETag', `0-${fileStat.mtime.getTime()}`);
+                if (mergedOptions.acceptRanges) res.setHeader('Accept-Ranges', 'bytes');
+                res.end();
+            }
+            if (cb) await cb();
+            return true;
+        }
+
+        /// I file size is greater than max allowed size
+        if (mergedOptions.maxAllowedSize && fileStat.size > mergedOptions.maxAllowedSize) {
+            const error = new Error('File Size is greater than the allowed size');
+            if (cb) cb(error);
+            return showError ? sendErrorResponse(error, res, cb) : false;
+        }
+
+
 
         // Handle conditional GET requests
         const ifModifiedSince = req.headers['if-modified-since'];
@@ -274,6 +300,10 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         const rangeHeader = req.headers.range;
         let start = 0;
         let end = fileStat.size - 1;
+
+            
+
+
 
         if (rangeHeader && mergedOptions.acceptRanges) {
             const range = parseRange(rangeHeader, fileStat.size);
@@ -301,7 +331,6 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
 
         // Set custom headers
         Object.entries(headersToShow).forEach(([key, value]) => {
-
             res.setHeader(key, value);
         });
 
@@ -335,9 +364,7 @@ async function sendFile(filePath: string, options: Partial<JaiStaticOptions>, re
         // Handle response errors
         res.on('error', (error) => {
             sendErrorResponse(error, res, cb);
-
         });
-
 
         // Wait for the stream to finish
         await new Promise((resolve, reject) => readStream.on('close', resolve).on('end', resolve).on('error', reject));

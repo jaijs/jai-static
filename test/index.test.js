@@ -25,7 +25,7 @@ describe('JaiStaticMiddleware', () => {
       writeHead: jest.fn(),
       end: jest.fn(),
       on: jest.fn(),
-      statusCode: 200,
+      statusCode: 1111,
     };
     mockNext = jest.fn();
   };
@@ -59,6 +59,129 @@ describe('JaiStaticMiddleware', () => {
   });
 
 
+
+  test('should handle range request for zero-sized file', async () => {
+    const middleware = JaiStaticMiddleware({ dir: './public' });
+    mockReq.url = '/public/empty.txt';
+    mockReq.headers = { range: 'bytes=0-' };
+    setupFileMocks(false, 0);  // Set up for a zero-sized file
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.statusCode).toBe(416);  // Range Not Satisfiable
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Range', 'bytes */0');
+    expect(mockRes.end).toHaveBeenCalled();
+  });
+
+  test('should handle GET request for zero-sized file', async () => {
+    const middleware = JaiStaticMiddleware({ dir: './public' });
+    mockReq.url = '/public/empty.txt';
+    setupFileMocks(false, 0);  // Set up for a zero-sized file
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.statusCode).toBe(200);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/plain');
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Length', '0');
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Accept-Ranges', 'bytes');
+    expect(mockRes.end).toHaveBeenCalled();
+  });
+  test('should handle zero-sized files correctly', async () => {
+    const middleware = JaiStaticMiddleware({ dir: './public' });
+    mockReq.url = '/public/empty.txt';
+    setupFileMocks(false, 0);  // Set up for a zero-sized file
+    const mockReadStream = setupReadStreamMock();
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/plain');
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Length', '0');
+    expect(mockRes.statusCode).toBe(200);
+    expect(mockRes.end).toHaveBeenCalled();
+    expect(mockReadStream.pipe).not.toHaveBeenCalled();  // Ensure pipe is not called for zero-sized files
+  });
+
+  test('should handle custom MIME types', async () => {
+    const middleware = JaiStaticMiddleware({
+      dir: './public',
+      mimeTypes: { 'custom': 'application/x-custom' }
+    });
+    mockReq.url = '/public/file.custom';
+    setupFileMocks();
+    setupReadStreamMock();
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'application/x-custom');
+  });
+
+  test('should respect allowedExtensions option', async () => {
+    const middleware = JaiStaticMiddleware({
+      dir: './public',
+      allowedExtensions: ['txt', 'html']
+    });
+    mockReq.url = '/public/file.jpg';
+    setupFileMocks();
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockNext).toHaveBeenCalled();
+  });
+
+  test('should handle basePath option correctly', async () => {
+    const middleware = JaiStaticMiddleware({
+      dir: './public',
+      basePath: '/static'
+    });
+    mockReq.url = '/static/file.txt';
+    setupFileMocks();
+    setupReadStreamMock();
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.statusCode).toBe(200);
+  });
+
+  test('should handle urlPath option correctly', async () => {
+    const middleware = JaiStaticMiddleware({
+      dir: './public',
+      urlPath: '/assets'
+    });
+    mockReq.url = '/assets/file.txt';
+    setupFileMocks();
+    setupReadStreamMock();
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.statusCode).toBe(200);
+  });
+
+  test('should handle etag option set to false', async () => {
+    const middleware = JaiStaticMiddleware({
+      dir: './public',
+      etag: false
+    });
+    setupFileMocks();
+    setupReadStreamMock();
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.setHeader).not.toHaveBeenCalledWith('ETag', expect.any(String));
+  });
+
+
+  test('should handle directory with no index file', async () => {
+    const middleware = JaiStaticMiddleware({
+      dir: './public',
+      index: false
+    });
+    mockReq.url = '/public/';
+    setupFileMocks(true);
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockNext).toHaveBeenCalled();
+  });
 
   test('should set ETag header', async () => {
     const middleware = JaiStaticMiddleware({ dir: './public' });
@@ -413,7 +536,7 @@ describe('sendFile function', () => {
       writeHead: jest.fn(),
       end: jest.fn(),
       on: jest.fn(),
-      statusCode: 200,
+      statusCode: 1111,
     };
     jest.clearAllMocks();
   });
@@ -442,7 +565,19 @@ describe('sendFile function', () => {
     fs.createReadStream.mockReturnValue(mockReadStream);
     return mockReadStream;
   };
+  test('should handle zero-sized files', async () => {
+    setupFileMocks(true, false, 0);  // Set up for a zero-sized file
+    const mockReadStream = setupReadStreamMock();
 
+    const result = await JaiStaticMiddleware.sendFile('empty.txt', {}, mockRes, {});
+
+    expect(result).toBe(true);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/plain');
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Length', '0');
+    expect(mockRes.statusCode).toBe(200);
+    expect(mockRes.end).toHaveBeenCalled();
+    expect(mockReadStream.pipe).not.toHaveBeenCalled();  // Ensure pipe is not called for zero-sized files
+  });
   test('should send file successfully', async () => {
     setupFileMocks();
     setupReadStreamMock();
@@ -578,6 +713,81 @@ describe('sendFile function', () => {
 
     expect(result).toBe(false);
     expect(mockRes.statusCode).toBe(403);
+  });
+
+
+  test('should handle very large files', async () => {
+    const largeFileSize = Number.MAX_SAFE_INTEGER;
+    setupFileMocks(true, false, largeFileSize);
+    setupReadStreamMock();
+
+    const result = await JaiStaticMiddleware.sendFile('large.file', {}, mockRes, {});
+
+    expect(result).toBe(true);
+    expect(mockRes.statusCode).toBe(200);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Length', largeFileSize);
+  });
+
+
+  test('should Throw Error if file greater than maxAllowedSize', async () => {
+    const largeFileSize = Number.MAX_SAFE_INTEGER;
+    setupFileMocks(true, false, largeFileSize);
+    setupReadStreamMock();
+
+    const result = await JaiStaticMiddleware.sendFile('large.file', {maxAllowedSize:99999}, mockRes, {});
+
+    expect(result).toBe(false);
+    expect(mockRes.statusCode).toBe(1111);
+    expect(mockRes.setHeader).not.toHaveBeenCalledWith('Content-Length', largeFileSize);
+  });
+
+
+  test('should Throw Error if file greater than maxAllowedSize with fallthrough=false', async () => {
+    const largeFileSize = Number.MAX_SAFE_INTEGER;
+    setupFileMocks(true, false, largeFileSize);
+    setupReadStreamMock();
+
+    const result = await JaiStaticMiddleware.sendFile('large.file', {maxAllowedSize:99999, fallthrough:false}, mockRes, {});
+
+    expect(result).toBe(false);
+    expect(mockRes.statusCode).toBe(500);
+    expect(mockRes.setHeader).not.toHaveBeenCalledWith('Content-Length', largeFileSize);
+  });
+
+
+  test('should handle files with spaces in name', async () => {
+    setupFileMocks();
+    setupReadStreamMock();
+
+    const result = await JaiStaticMiddleware.sendFile('file with spaces.txt', {}, mockRes, {});
+
+    expect(result).toBe(true);
+    expect(mockRes.statusCode).toBe(200);
+  });
+
+  test('should handle options.immutable set to true', async () => {
+    setupFileMocks();
+    setupReadStreamMock();
+
+    await JaiStaticMiddleware.sendFile('test.txt', { immutable: true, maxAge: 31536000 }, mockRes, {});
+
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=31536000, immutable');
+  });
+
+  test('should handle request with If-Range header', async () => {
+    const mockReq = {
+      headers: {
+        range: 'bytes=0-499',
+        'if-range': '"some-etag"'
+      }
+    };
+    setupFileMocks(true, false, 1000);
+    setupReadStreamMock();
+
+    await JaiStaticMiddleware.sendFile('testss.txt', { etag: true }, mockRes, mockReq);
+
+    expect(mockRes.statusCode).toBe(206);
+    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Range', 'bytes 0-499/1000');
   });
 
   
