@@ -416,10 +416,9 @@ async function createStatic(options: JaiStaticOptions, req: IncomingMessage, res
         return next();
     }
     mergedOptions.existingHeaders = (req.headers as Record<string, string>);
-    await sendFile(filePath, mergedOptions, res, req, undefined);
-
+    const result =await sendFile(filePath, mergedOptions, res, req, undefined);
+   if (result) return;
     if (mergedOptions.fallthrough) return next();
-
 
 }
 

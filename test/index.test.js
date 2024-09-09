@@ -170,7 +170,18 @@ describe('JaiStaticMiddleware', () => {
   });
 
 
-  test('should handle directory with no index file', async () => {
+  test('should handle and search for index', async () => {
+    const middleware = JaiStaticMiddleware({
+      dir: './public',
+    });
+    mockReq.url = '/public/';
+    setupFileMocks(true);
+
+    await middleware(mockReq, mockRes, mockNext);
+    expect(mockRes.statusCode).toBe(200);
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+  test('should not search for index when index=false', async () => {
     const middleware = JaiStaticMiddleware({
       dir: './public',
       index: false
@@ -179,9 +190,10 @@ describe('JaiStaticMiddleware', () => {
     setupFileMocks(true);
 
     await middleware(mockReq, mockRes, mockNext);
-
+    expect(mockRes.statusCode).toBe(1111);
     expect(mockNext).toHaveBeenCalled();
   });
+
 
   test('should set ETag header', async () => {
     const middleware = JaiStaticMiddleware({ dir: './public' });
@@ -322,8 +334,8 @@ describe('JaiStaticMiddleware', () => {
     expect(mockReadStream.pipe).toHaveBeenCalledWith(mockRes);
   });
 
-  test('should return 404 for non-existent file', async () => {
-    const middleware = JaiStaticMiddleware({ dir: './public' });
+  test('should return 404 for non-existent file with fallthrough=false', async () => {
+    const middleware = JaiStaticMiddleware({ dir: './public', fallthrough: false });
     fs.promises.access.mockRejectedValue(new Error('ENOENT'));
     mockNext.mockImplementation(() => {
       mockRes.statusCode = 404;
@@ -335,6 +347,21 @@ describe('JaiStaticMiddleware', () => {
     expect(mockRes.statusCode).toBe(404);
     expect(mockRes.end).toHaveBeenCalledWith(expect.stringContaining('Not Found'));
   });
+
+  test('should return 404 for non-existent file by default, and next should be called', async () => {
+    const middleware = JaiStaticMiddleware({ dir: './public' });
+    fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+    mockNext.mockImplementation(() => {
+      mockRes.statusCode = 201;
+      mockRes.end('OK');
+    });
+
+    await middleware(mockReq, mockRes, mockNext);
+
+    expect(mockRes.statusCode).toBe(201);
+    expect(mockRes.end).toHaveBeenCalledWith(expect.stringContaining('OK'));
+  });
+
 
   test('should handle dot files according to options', async () => {
     const middleware = JaiStaticMiddleware({ dir: './public', dotfiles: 'deny' });
