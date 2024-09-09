@@ -1,6 +1,7 @@
 # Jai Static
 
-A powerful and flexible Node.js module for serving static files with ease. Jai Static offers seamless integration with any Node.js framework and provides fine-grained control over how your static assets are served.
+![Jai Logo](./jai-static.png)
+A powerful and flexible Node.js module for serving static files (images, videos, stream videos range, pdf, documents etc) with ease. Jai Static offers seamless integration with any Node.js framework and provides fine-grained control over how your static assets are served.
 
 ---
 
@@ -11,7 +12,7 @@ A powerful and flexible Node.js module for serving static files with ease. Jai S
 
 ---
 
-![Jai Logo](public/Jai_js.jpg)
+
 
 ## Table of Contents
 
@@ -425,4 +426,7 @@ For more help, please open an issue on the GitHub repository.
 
 ## Author
 
-[@hsk11](https://github.com/hsk11)
+Harpal Singh: [@hsk11](https://github.com/hsk11) . **Website**: [Jaijs.org](https://jaijs.org/).
+
+
+#jaijs #cdn #image-server #jai-static #static-files #stream-video #static-server #middleware
